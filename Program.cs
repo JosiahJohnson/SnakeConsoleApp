@@ -4,55 +4,37 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ConsoleApp1
+namespace SnakeGame
 {
 	class Program
 	{
-		static int gridWidth = 60, gridHeight = 25;
+		static int gridWidth = 30, gridHeight = 15;
 		static Snake snake = new Snake();
-
-		class Snake
-		{
-			public Direction Direction { get; set; }
-			public Position Position { get; set; }
-			public List<Position> Tail { get; set; }
-
-			public Snake()
-			{
-				Direction = Direction.Right;
-				Position = new Position(3, 1);
-				Tail = new List<Position>();
-				Tail.Add(new Position(2, 1));
-				Tail.Add(new Position(1, 1));
-			}
-		}
-
-		class Position
-		{
-			public int X { get; set; }
-			public int Y { get; set; }
-
-			public Position(int x, int y)
-			{
-				X = x;
-				Y = y;
-			}
-		}
-
-		enum Direction
-		{
-			Up, Down, Left, Right
-		}
+		static Apple apple = new Apple(gridWidth, gridHeight, snake);
+		static int score = 0;
+		static bool gameOver = false;
 
 		static void Main(string[] args)
 		{
 			while (true)
 			{
-				Console.Clear();
-				CheckUserInput();
-				ChangeSnakePosition();
-				DisplayOutput();
-				System.Threading.Thread.Sleep(100);
+				while (!gameOver)
+				{
+					Console.Clear();
+					CheckUserInput();
+					ChangeSnakePosition();
+					DisplayOutput();
+					System.Threading.Thread.Sleep(GetSpeed());
+				}
+
+				Console.WriteLine("GAME OVER MAN!!");
+				Console.WriteLine("Press Enter to try again.");
+				Console.ReadLine();
+
+				gameOver = false;
+				score = 0;
+				snake.Initialize();
+				apple.RandomizePosition(snake);
 			}
 		}
 
@@ -64,45 +46,70 @@ namespace ConsoleApp1
 
 				switch (action.Key)
 				{
-					case ConsoleKey.UpArrow: snake.Direction = Direction.Up; break;
-					case ConsoleKey.DownArrow: snake.Direction = Direction.Down; break;
-					case ConsoleKey.LeftArrow: snake.Direction = Direction.Left; break;
-					case ConsoleKey.RightArrow: snake.Direction = Direction.Right; break;
+					case ConsoleKey.UpArrow:
+						if (snake.Direction != Direction.Down)
+							snake.Direction = Direction.Up;
+						break;
+					case ConsoleKey.DownArrow:
+						if (snake.Direction != Direction.Up)
+							snake.Direction = Direction.Down;
+						break;
+					case ConsoleKey.LeftArrow:
+						if (snake.Direction != Direction.Right)
+							snake.Direction = Direction.Left;
+						break;
+					case ConsoleKey.RightArrow:
+						if (snake.Direction != Direction.Left)
+							snake.Direction = Direction.Right;
+						break;
 				}
 			}
 		}
 
 		static void ChangeSnakePosition()
 		{
-			Position origPos = new Position(snake.Position.X, snake.Position.Y);
+			Position lastPos = new Position(snake.Tail.X, snake.Tail.Y);
 
+			//set tail positions
+			for (int i = (snake.Positions.Count - 1); i > 0; i--)
+			{
+				snake.Positions[i].X = snake.Positions[i - 1].X;
+				snake.Positions[i].Y = snake.Positions[i - 1].Y;
+			}
+
+			//set head position
 			switch (snake.Direction)
 			{
 				case Direction.Up:
-					if (snake.Position.Y > 1)
-						snake.Position.Y--;
+					snake.Head.Y--;
 					break;
 				case Direction.Down:
-					if (snake.Position.Y < (gridHeight - 2))
-						snake.Position.Y++;
+					snake.Head.Y++;
 					break;
 				case Direction.Left:
-					if (snake.Position.X > 1)
-						snake.Position.X--;
+					snake.Head.X -= 2;
 					break;
 				case Direction.Right:
-					if (snake.Position.X < (gridWidth - 2))
-						snake.Position.X++;
+					snake.Head.X += 2;
 					break;
 			}
 
-			snake.Tail[0].X = origPos.X;
-			snake.Tail[0].Y = origPos.Y;
+			//check if ate apple
+			if (snake.Head.X == apple.Position.X && snake.Head.Y == apple.Position.Y)
+			{
+				snake.Positions.Add(lastPos);
+				apple.RandomizePosition(snake);
+				score += 10;
+			}
+
+			//check for collisions
+			if (snake.Head.X < 1 || snake.Head.X > (gridWidth - 2) || snake.Head.Y < 1 || snake.Head.Y > (gridHeight - 2) || snake.AteSelf())
+				gameOver = true;
 		}
 
 		static void DisplayOutput()
 		{
-			string output = "";
+			string output = "Score: " + score + Environment.NewLine;
 
 			for (int y = 0; y < gridHeight; y++)
 			{
@@ -112,12 +119,14 @@ namespace ConsoleApp1
 						output += "=";
 					else if (x == 0 || x == (gridWidth - 1))
 						output += "|";
-					else if (x == snake.Position.X && y == snake.Position.Y)
-						output += "X";
+					else if (x == apple.Position.X && y == apple.Position.Y)
+						output += "@";
+					else if (x == snake.Head.X && y == snake.Head.Y)
+						output += snake.GetHeadCharacter();
 					else
 					{
 						bool tailFound = false;
-						foreach (Position pos in snake.Tail)
+						foreach (Position pos in snake.Positions)
 						{
 							if (x == pos.X && y == pos.Y)
 							{
@@ -136,6 +145,38 @@ namespace ConsoleApp1
 			}
 
 			Console.Write(output);
+		}
+
+		static int GetSpeed()
+		{
+			int speed = 200;
+
+			speed -= (score / 2);
+
+			if (speed < 75)
+				speed = 75;
+
+			return speed;
+		}
+	}
+
+	enum Direction
+	{
+		Up, Down, Left, Right
+	}
+
+	class Position
+	{
+		public int X { get; set; }
+		public int Y { get; set; }
+
+		public Position()
+		{ }
+
+		public Position(int x, int y)
+		{
+			X = x;
+			Y = y;
 		}
 	}
 }
